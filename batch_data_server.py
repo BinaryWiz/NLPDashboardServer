@@ -3,6 +3,7 @@ import os
 from typing import Dict, Tuple, List
 from flask import Flask, request
 from flask_cors import cross_origin
+from helpers.error_tracking import print_unk_error
 
 DATABASE_PATH = 'databases/'
 
@@ -39,7 +40,7 @@ def create_database() -> Tuple[Dict, int]:
         return {'success': False}, 409
 
     except Exception as e:
-        print('Type: {} Message: {}'.format(type(e).__name__, str(e)))
+        print_unk_error(e)
         return {'success': False}, 400
 
 @app.route('/add_data', methods=['PUT'])
@@ -68,7 +69,7 @@ def add_data() -> Tuple[Dict, int]:
         return {'success': True}, 201
 
     except Exception as e:
-        print('Type: {} Message: {}'.format(type(e).__name__, str(e)))
+        print_unk_error(e)
         return {'success': False}, 400
 
 if __name__ == '__main__':
