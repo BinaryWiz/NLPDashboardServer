@@ -10,7 +10,7 @@ DATABASE_PATH = 'databases/'
 app = Flask(__name__)
 DATABASE_COLUMNS = 'Epoch INTEGER, Batch INTEGER, Accuracy REAL, Loss REAL, RunningAccuracy REAL, RunningLoss REAL'
 
-@app.route('/create_db', methods=['PUT'])
+@app.route('/create_batch_db', methods=['PUT'])
 @cross_origin()
 def create_database() -> Tuple[Dict, int]:
     '''
@@ -44,7 +44,7 @@ def create_database() -> Tuple[Dict, int]:
         print_unk_error(e)
         return {'success': False}, 400
 
-@app.route('/add_data', methods=['PUT'])
+@app.route('/add_batch_data', methods=['PUT'])
 @cross_origin()
 def add_data() -> Tuple[Dict, int]:
     '''
@@ -72,7 +72,18 @@ def add_data() -> Tuple[Dict, int]:
         print_unk_error(e)
         return {'success': False}, 400
 
-@app.route('/get_data', methods=['GET'])
+@app.route('/delete_batch_db', methods=['DELETE'])
+@cross_origin()
+def delete_batch_db() -> Tuple[Dict, int]:
+    model_name: str = request.json['model_name'].lower()
+    db_path: str = '{}/{}.db'.format(DATABASE_PATH, model_name)
+    if os.path.exists(db_path):
+        os.remove(db_path)
+        return {'success': True}, 200
+    else:
+        return {'success': False, 'message': 'Database does not exist'}, 404
+
+@app.route('/get_batch_data', methods=['GET'])
 @cross_origin()
 def get_row_data() -> Tuple[Dict, int]:
     '''
@@ -87,7 +98,7 @@ def get_row_data() -> Tuple[Dict, int]:
         cur = conn.cursor()
 
         # Get all the rows that would be new data for the front-end
-        cur.execute("SELECT * from data WHERE Epoch > {} OR (Epoch == {} AND Batch > {})".format(epoch, epoch, batch))
+        cur.execute('SELECT * from data WHERE Epoch > {} OR (Epoch == {} AND Batch > {})'.format(epoch, epoch, batch))
         rows: List[List[int, int, float, float, float]] = cur.fetchall()
 
         # Close the connections
