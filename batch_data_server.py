@@ -151,19 +151,15 @@ def get_examples() -> Tuple[Dict, int]:
     model_name: str = request.args.get('model_name')
     epoch: int = int(request.args.get('epoch'))
     batch: int = int(request.args.get('batch'))
-    batch_size: int = int(request.args.get('batch_size'))
     try:
         # Open connection to database
         conn = sqlite3.connect('{}/{}.db'.format(DATABASE_PATH, model_name))
         cur = conn.cursor()
 
         # Get all the rows that would be new data for the front-end
-        cur.execute('SELECT * from {} WHERE Epoch > {} OR (Epoch == {} AND Batch > {})'.format(EXAMPLES_TABLE, epoch, epoch, batch))
+        cur.execute('SELECT * from {} WHERE Epoch = {} AND Batch = {}'.format(EXAMPLES_TABLE, epoch, batch))
         rows: List[List[int, int, str, str, float, float, int, int]] = cur.fetchall()
         
-        # Divide the rows into the batches
-        rows = chunk_list(rows, batch_size)
-
         # Close the connections
         cur.close()
         conn.close()
