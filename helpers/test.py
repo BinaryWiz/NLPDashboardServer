@@ -6,7 +6,7 @@ while True:
 
     if user_input.lower() == 'create db':
         model_name = input('What would you like the model name to be? ')
-        requests.put('http://localhost:3000/create_db', json={'model_name': model_name})
+        requests.post('http://localhost:3000/create_db', json={'model_name': model_name})
 
     if user_input.lower() == 'delete db':
         model_name = input('What model database would you like to delete? ')

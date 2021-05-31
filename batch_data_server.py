@@ -14,7 +14,7 @@ EXAMPLES_DATABASE_COLUMNS = 'Epoch INTEGER, Batch INTEGER, Title1 TEXT, Title2 T
 BATCH_TABLE = 'batch_data'
 EXAMPLES_TABLE = 'examples_data'
 
-@app.route('/create_db', methods=['PUT'])
+@app.route('/create_db', methods=['POST'])
 @cross_origin()
 def create_database() -> Tuple[Dict, int]:
     '''
@@ -23,25 +23,27 @@ def create_database() -> Tuple[Dict, int]:
     try:
         model_name: str = request.json['model_name'].lower()
         
-        # Open connection to databse
-        conn = sqlite3.connect('{}/{}.db'.format(DATABASE_PATH, model_name))
+        if not os.path.exists('{}/{}.db'.format(DATABASE_PATH, model_name)):
+            # Open connection to databse
+            conn = sqlite3.connect('{}/{}.db'.format(DATABASE_PATH, model_name))
 
-        # Use a cursor to create the database
-        cur = conn.cursor()
-        cur.execute('''CREATE TABLE {} ({})'''.format(BATCH_TABLE, BATCH_DATABASE_COLUMNS))
-        cur.execute('''CREATE TABLE {} ({})'''.format(EXAMPLES_TABLE, EXAMPLES_DATABASE_COLUMNS))
+            # Use a cursor to create the database
+            cur = conn.cursor()
+            cur.execute('''CREATE TABLE {} ({})'''.format(BATCH_TABLE, BATCH_DATABASE_COLUMNS))
+            cur.execute('''CREATE TABLE {} ({})'''.format(EXAMPLES_TABLE, EXAMPLES_DATABASE_COLUMNS))
 
-        # Save changes and close connection
-        conn.commit()
-        cur.close()
-        conn.close()
+            # Save changes and close connection
+            conn.commit()
+            cur.close()
+            conn.close()
 
-        return {'success': True}, 201
+            return {'success': True}, 201
+        else:
+            return {'success': False}, 409
 
     except sqlite3.OperationalError as e:
         print('Message: {}'.format(str(e)))
-        print('Database most likely already exists.')
-        
+
         # Return 409 state-conflict error
         return {'success': False}, 409
 
@@ -75,7 +77,8 @@ def add_batch_data() -> Tuple[Dict, int]:
         
         # Insert the values into the database
         for batch_stat in batch_stats:
-            cur.execute(''' INSERT into {} values ({}, {}, {}, {}, {}, {}) '''.format(BATCH_TABLE, *batch_stat))
+            cur.execute(''' INSERT into {} values (?, ?, ?, ?, ?, ?) '''.format(BATCH_TABLE),
+            ([batch_stat['epoch'], batch_stat['batch'], batch_stat['accuracy'], batch_stat['loss'], batch_stat['runningAccuracy'], batch_stat['runningLoss']]))
         
         # Save the changes
         conn.commit()
@@ -105,12 +108,16 @@ def get_batch_data() -> Tuple[Dict, int]:
         # Get all the rows that would be new data for the front-end
         cur.execute('SELECT * from {} WHERE Epoch > {} OR (Epoch == {} AND Batch > {})'.format(BATCH_TABLE, epoch, epoch, batch))
         rows: List[List[int, int, float, float, float]] = cur.fetchall()
+        labels: List[str, str, str, str, str, str] = ['epoch', 'batch', 'accuracy', 'loss', 'runningAccuracy', 'runningLoss']
+        dict_rows = []
+        for row in rows:
+            dict_rows.append(dict(zip(labels, row)))
 
         # Close the connections
         cur.close()
         conn.close()
         
-        return {'data': rows, 'success': True}, 200
+        return {'data': dict_rows, 'success': True}, 200
 
     except Exception as e:
         print_unk_error(e)
@@ -132,7 +139,9 @@ def add_examples() -> Tuple[Dict, int]:
         # Insert the values into the database
         for batch in batches:
             for example in batch:
-                cur.execute(''' INSERT into {} values ({}, {}, "{}", "{}", {}, {}, {}, {}) '''.format(EXAMPLES_TABLE, *example))
+                cur.execute(''' INSERT into {} values (?, ?, ?, ?, ?, ?, ?, ?) '''.format(EXAMPLES_TABLE),
+                ([example['epoch'], example['batch'], example['title1'],
+                example['title2'], example['positivePercentage'], example['negativePercentage'], example['modelPrediction'], example['label']]))
         
         # Save the changes
         conn.commit()
@@ -156,15 +165,20 @@ def get_examples() -> Tuple[Dict, int]:
         conn = sqlite3.connect('{}/{}.db'.format(DATABASE_PATH, model_name))
         cur = conn.cursor()
 
-        # Get all the rows that would be new data for the front-end
+        # Get the batch data at the particular epoch and batch
         cur.execute('SELECT * from {} WHERE Epoch = {} AND Batch = {}'.format(EXAMPLES_TABLE, epoch, batch))
         rows: List[List[int, int, str, str, float, float, int, int]] = cur.fetchall()
+        labels: List[str, str, str, str, str, str, str, str] = ['epoch', 'batch', 'title1', 'title2', 'positivePercentage',
+                                                                'negativePercentage', 'modelPrediction', 'label']
+        dict_rows = []
+        for row in rows:
+            dict_rows.append(dict(zip(labels, row)))
         
         # Close the connections
         cur.close()
         conn.close()
         
-        return {'data': rows, 'success': True}, 200
+        return {'data': dict_rows, 'success': True}, 200
 
     except Exception as e:
         print_unk_error(e)
