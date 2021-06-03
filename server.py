@@ -69,7 +69,7 @@ def add_batch_data() -> Tuple[Dict, int]:
     Add rows of data from training to the database
     '''
     model_name: str = request.json['model_name'].lower()
-    batch_stats: List[List[int, int, float, float, float, float]] = request.json['data']
+    batch_stats: List[Dict[int, int, float, float, float, float]] = request.json['data']
     try:
         if os.path.exists('{}/{}.db'.format(DATABASE_PATH, model_name)):
             # Open connection to the database
@@ -136,7 +136,7 @@ def add_examples() -> Tuple[Dict, int]:
     Add example data
     '''
     model_name: str = request.json['model_name'].lower()
-    batches: List[List[int, int, str, str, float, float, int, int]] = request.json['data']
+    batches: List[Dict[int, int, str, str, float, float, int, int]] = request.json['data']
     try:
         if os.path.exists('{}/{}.db'.format(DATABASE_PATH, model_name)):
             # Open connection to the database
