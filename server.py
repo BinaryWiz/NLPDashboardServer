@@ -54,6 +54,10 @@ def create_database() -> Tuple[Dict, int]:
 @app.route('/delete_db', methods=['DELETE'])
 @cross_origin()
 def delete_batch_db() -> Tuple[Dict, int]:
+    '''
+    Deletes a database based on the name
+    '''
+
     model_name: str = request.json['model_name'].lower()
     db_path: str = '{}/{}.db'.format(DATABASE_PATH, model_name)
     if os.path.exists(db_path):
@@ -166,6 +170,10 @@ def add_examples() -> Tuple[Dict, int]:
 @app.route('/get_examples_data', methods=['GET'])
 @cross_origin()
 def get_examples() -> Tuple[Dict, int]:
+    '''
+    Returns example data for a particular batch
+    '''
+
     model_name: str = request.args.get('model_name')
     epoch: int = int(request.args.get('epoch'))
     batch: int = int(request.args.get('batch'))
