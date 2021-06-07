@@ -8,11 +8,16 @@ from helpers.helper_functions import chunk_list
 
 DATABASE_PATH = 'databases/'
 
+# Create the path for database files
+if not os.path.exists(DATABASE_PATH):
+    os.makedirs(DATABASE_PATH)
+
 app = Flask(__name__)
 BATCH_DATABASE_COLUMNS = 'Epoch INTEGER, Batch INTEGER, Accuracy REAL, Loss REAL, RunningAccuracy REAL, RunningLoss REAL'
 EXAMPLES_DATABASE_COLUMNS = 'Epoch INTEGER, Batch INTEGER, Title1 TEXT, Title2 TEXT, SoftmaxPos REAL, SoftmaxNeg REAL, Prediction INTEGER, Label INTEGER'
 BATCH_TABLE = 'batch_data'
 EXAMPLES_TABLE = 'examples_data'
+MODEL_NAMES_FILE = 'models_saved.txt'
 
 @app.route('/create_db', methods=['POST'])
 @cross_origin()
@@ -20,9 +25,9 @@ def create_database() -> Tuple[Dict, int]:
     '''
     Create a new database given the model's name
     '''
+
     try:
-        model_name: str = request.json['model_name'].lower()
-        
+        model_name: str = request.json['model_name']
         if not os.path.exists('{}/{}.db'.format(DATABASE_PATH, model_name)):
             # Open connection to databse
             conn = sqlite3.connect('{}/{}.db'.format(DATABASE_PATH, model_name))
@@ -36,6 +41,10 @@ def create_database() -> Tuple[Dict, int]:
             conn.commit()
             cur.close()
             conn.close()
+
+            # Add the model name to the list of models
+            with open('{}/{}'.format(DATABASE_PATH, MODEL_NAMES_FILE), 'a') as model_names_file:
+                model_names_file.write(model_name + '\n')                
 
             return {'success': True}, 201
         else:
@@ -51,6 +60,20 @@ def create_database() -> Tuple[Dict, int]:
         print_unk_error(e)
         return {'success': False}, 400
 
+@app.route('/get_avail_models', methods=['GET'])
+@cross_origin()
+def get_available_models() -> Tuple[Dict, int]:
+    '''
+    Return a list of available models to view in dashboard
+    '''
+
+    # Get the list of model names from the server
+    with open('{}/{}'.format(DATABASE_PATH, MODEL_NAMES_FILE), 'r') as model_names_file:
+        model_names: List[str] = model_names_file.readlines()
+        model_names = [model.strip() for model in model_names]
+    
+    return {'success': True, 'data': model_names}, 200
+
 @app.route('/delete_db', methods=['DELETE'])
 @cross_origin()
 def delete_batch_db() -> Tuple[Dict, int]:
@@ -58,10 +81,21 @@ def delete_batch_db() -> Tuple[Dict, int]:
     Deletes a database based on the name
     '''
 
-    model_name: str = request.json['model_name'].lower()
+    model_name: str = request.json['model_name']
     db_path: str = '{}/{}.db'.format(DATABASE_PATH, model_name)
     if os.path.exists(db_path):
+        # Delete the db file
         os.remove(db_path)
+        
+        # Open the file and delete the model name from the list of available models
+        with open('{}/{}'.format(DATABASE_PATH, MODEL_NAMES_FILE), 'r+') as model_names_file:
+            model_names = model_names_file.readlines()
+            model_names.remove(model_name + '\n')
+            model_names_file.truncate(0)
+            model_names_file.seek(0)
+            for model in model_names:
+                model_names_file.write(model)
+        
         return {'success': True}, 200
     else:
         return {'success': False, 'message': 'Database does not exist'}, 404
@@ -72,7 +106,8 @@ def add_batch_data() -> Tuple[Dict, int]:
     '''
     Add rows of data from training to the database
     '''
-    model_name: str = request.json['model_name'].lower()
+
+    model_name: str = request.json['model_name']
     batch_stats: List[Dict[int, int, float, float, float, float]] = request.json['data']
     try:
         if os.path.exists('{}/{}.db'.format(DATABASE_PATH, model_name)):
@@ -104,6 +139,7 @@ def get_batch_data() -> Tuple[Dict, int]:
     '''
     Returns specific rows of the batch data database given the last point 
     '''
+
     model_name: str = request.args.get('model_name')
     epoch: int = request.args.get('epoch')
     batch: int = request.args.get('batch')
@@ -139,7 +175,8 @@ def add_examples() -> Tuple[Dict, int]:
     '''
     Add example data
     '''
-    model_name: str = request.json['model_name'].lower()
+
+    model_name: str = request.json['model_name']
     batches: List[Dict[int, int, str, str, float, float, int, int]] = request.json['data']
     try:
         if os.path.exists('{}/{}.db'.format(DATABASE_PATH, model_name)):
