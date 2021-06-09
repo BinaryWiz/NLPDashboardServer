@@ -15,8 +15,8 @@ if not os.path.exists(DATABASE_PATH):
 app = Flask(__name__)
 BATCH_DATABASE_COLUMNS = 'Epoch INTEGER, Batch INTEGER, Accuracy REAL, Loss REAL, RunningAccuracy REAL, RunningLoss REAL'
 EXAMPLES_DATABASE_COLUMNS = 'Epoch INTEGER, Batch INTEGER, Title1 TEXT, Title2 TEXT, SoftmaxPos REAL, SoftmaxNeg REAL, Prediction INTEGER, Label INTEGER'
-BATCH_TABLE = 'batch_data'
-EXAMPLES_TABLE = 'examples_data'
+BATCH_TABLE = 'batch_data_{}'
+EXAMPLES_TABLE = 'examples_data_{}'
 MODEL_NAMES_FILE = 'models_saved.txt'
 
 @app.route('/create_db', methods=['POST'])
@@ -28,14 +28,16 @@ def create_database() -> Tuple[Dict, int]:
 
     try:
         model_name: str = request.json['model_name']
+        tables: List[str] = request.json['tables']
         if not os.path.exists('{}/{}.db'.format(DATABASE_PATH, model_name)):
             # Open connection to databse
             conn = sqlite3.connect('{}/{}.db'.format(DATABASE_PATH, model_name))
 
             # Use a cursor to create the database
             cur = conn.cursor()
-            cur.execute('''CREATE TABLE {} ({})'''.format(BATCH_TABLE, BATCH_DATABASE_COLUMNS))
-            cur.execute('''CREATE TABLE {} ({})'''.format(EXAMPLES_TABLE, EXAMPLES_DATABASE_COLUMNS))
+            for table in tables:
+                cur.execute('''CREATE TABLE "{}" ({})'''.format(BATCH_TABLE.format(table), BATCH_DATABASE_COLUMNS))
+                cur.execute('''CREATE TABLE "{}" ({})'''.format(EXAMPLES_TABLE.format(table), EXAMPLES_DATABASE_COLUMNS))
 
             # Save changes and close connection
             conn.commit()
@@ -74,6 +76,37 @@ def get_available_models() -> Tuple[Dict, int]:
     
     return {'success': True, 'data': model_names}, 200
 
+@app.route('/get_table_names', methods=['GET'])
+@cross_origin()
+def get_table_names() -> Tuple[Dict, int]:
+    '''
+    Get the names of the tables of a database (without batch_data_ or example_data_)
+    '''
+
+    model_name: str = request.args.get('model_name')
+    try:
+        if os.path.exists('{}/{}.db'.format(DATABASE_PATH, model_name)):
+
+            # Open connection to database
+            conn = sqlite3.connect('{}/{}.db'.format(DATABASE_PATH, model_name))
+
+            # Get all the table names
+            tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table';")
+
+            # Format the name properly
+            names: List[str] = []
+            for table in tables:
+                if 'batch_data_' in table[0]:
+                    names.append(table[0].replace('batch_data_', ''))
+
+            return {'data': names, 'success': True}, 200
+        else:
+            return {'success': False}, 404
+    
+    except Exception as e:
+        print_unk_error(e)
+        return {'success': False}, 404
+
 @app.route('/delete_db', methods=['DELETE'])
 @cross_origin()
 def delete_batch_db() -> Tuple[Dict, int]:
@@ -108,6 +141,7 @@ def add_batch_data() -> Tuple[Dict, int]:
     '''
 
     model_name: str = request.json['model_name']
+    table: str = request.json['table']
     batch_stats: List[Dict[int, int, float, float, float, float]] = request.json['data']
     try:
         if os.path.exists('{}/{}.db'.format(DATABASE_PATH, model_name)):
@@ -117,7 +151,7 @@ def add_batch_data() -> Tuple[Dict, int]:
             
             # Insert the values into the database
             for batch_stat in batch_stats:
-                cur.execute(''' INSERT into {} values (?, ?, ?, ?, ?, ?) '''.format(BATCH_TABLE),
+                cur.execute(''' INSERT into {} values (?, ?, ?, ?, ?, ?) '''.format(BATCH_TABLE.format(table)),
                 ([batch_stat['epoch'], batch_stat['batch'], batch_stat['accuracy'], batch_stat['loss'], batch_stat['runningAccuracy'], batch_stat['runningLoss']]))
             
             # Save the changes
@@ -141,6 +175,7 @@ def get_batch_data() -> Tuple[Dict, int]:
     '''
 
     model_name: str = request.args.get('model_name')
+    table: str = request.args.get('table')
     epoch: int = request.args.get('epoch')
     batch: int = request.args.get('batch')
     try:
@@ -150,7 +185,7 @@ def get_batch_data() -> Tuple[Dict, int]:
             cur = conn.cursor()
 
             # Get all the rows that would be new data for the front-end
-            cur.execute('SELECT * from {} WHERE Epoch > {} OR (Epoch == {} AND Batch > {})'.format(BATCH_TABLE, epoch, epoch, batch))
+            cur.execute('SELECT * from {} WHERE Epoch > {} OR (Epoch == {} AND Batch > {})'.format(BATCH_TABLE.format(table), epoch, epoch, batch))
             rows: List[List[int, int, float, float, float]] = cur.fetchall()
             labels: List[str, str, str, str, str, str] = ['epoch', 'batch', 'accuracy', 'loss', 'runningAccuracy', 'runningLoss']
             dict_rows = []
@@ -177,6 +212,7 @@ def add_examples() -> Tuple[Dict, int]:
     '''
 
     model_name: str = request.json['model_name']
+    table: str = request.json['table']
     batches: List[Dict[int, int, str, str, float, float, int, int]] = request.json['data']
     try:
         if os.path.exists('{}/{}.db'.format(DATABASE_PATH, model_name)):
@@ -187,7 +223,7 @@ def add_examples() -> Tuple[Dict, int]:
             # Insert the values into the database
             for batch in batches:
                 for example in batch:
-                    cur.execute(''' INSERT into {} values (?, ?, ?, ?, ?, ?, ?, ?) '''.format(EXAMPLES_TABLE),
+                    cur.execute(''' INSERT into {} values (?, ?, ?, ?, ?, ?, ?, ?) '''.format(EXAMPLES_TABLE.format(table)),
                     ([example['epoch'], example['batch'], example['title1'],
                     example['title2'], example['positivePercentage'], example['negativePercentage'], example['modelPrediction'], example['label']]))
             
@@ -212,6 +248,7 @@ def get_examples() -> Tuple[Dict, int]:
     '''
 
     model_name: str = request.args.get('model_name')
+    table: str = request.args.get('table')
     epoch: int = int(request.args.get('epoch'))
     batch: int = int(request.args.get('batch'))
     try:
@@ -221,7 +258,7 @@ def get_examples() -> Tuple[Dict, int]:
             cur = conn.cursor()
 
             # Get the batch data at the particular epoch and batch
-            cur.execute('SELECT * from {} WHERE Epoch = {} AND Batch = {}'.format(EXAMPLES_TABLE, epoch, batch))
+            cur.execute('SELECT * from {} WHERE Epoch = {} AND Batch = {}'.format(EXAMPLES_TABLE.format(table), epoch, batch))
             rows: List[List[int, int, str, str, float, float, int, int]] = cur.fetchall()
             labels: List[str, str, str, str, str, str, str, str] = ['epoch', 'batch', 'title1', 'title2', 'positivePercentage',
                                                                     'negativePercentage', 'modelPrediction', 'label']

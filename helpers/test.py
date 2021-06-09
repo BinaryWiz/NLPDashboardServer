@@ -34,3 +34,8 @@ while True:
     if user_input.lower() == 'get examples data':
         response = requests.get('http://localhost:3000/get_examples_data', params={'model_name': 'priceassist', 'epoch': 1, 'batch': 2})
         print(response.json())
+    
+    if user_input.lower() == 'get table names':
+        model_name = input('What model database would you like to delete? ')
+        response = requests.get('http://localhost:3000/get_table_names', params={'model_name': model_name})
+        print(response.json())
