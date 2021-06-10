@@ -151,7 +151,7 @@ def add_batch_data() -> Tuple[Dict, int]:
             
             # Insert the values into the database
             for batch_stat in batch_stats:
-                cur.execute(''' INSERT into {} values (?, ?, ?, ?, ?, ?) '''.format(BATCH_TABLE.format(table)),
+                cur.execute(''' INSERT into "{}" values (?, ?, ?, ?, ?, ?) '''.format(BATCH_TABLE.format(table)),
                 ([batch_stat['epoch'], batch_stat['batch'], batch_stat['accuracy'], batch_stat['loss'], batch_stat['runningAccuracy'], batch_stat['runningLoss']]))
             
             # Save the changes
@@ -185,7 +185,7 @@ def get_batch_data() -> Tuple[Dict, int]:
             cur = conn.cursor()
 
             # Get all the rows that would be new data for the front-end
-            cur.execute('SELECT * from {} WHERE Epoch > {} OR (Epoch == {} AND Batch > {})'.format(BATCH_TABLE.format(table), epoch, epoch, batch))
+            cur.execute('SELECT * from "{}" WHERE Epoch > {} OR (Epoch == {} AND Batch > {})'.format(BATCH_TABLE.format(table), epoch, epoch, batch))
             rows: List[List[int, int, float, float, float]] = cur.fetchall()
             labels: List[str, str, str, str, str, str] = ['epoch', 'batch', 'accuracy', 'loss', 'runningAccuracy', 'runningLoss']
             dict_rows = []
@@ -223,7 +223,7 @@ def add_examples() -> Tuple[Dict, int]:
             # Insert the values into the database
             for batch in batches:
                 for example in batch:
-                    cur.execute(''' INSERT into {} values (?, ?, ?, ?, ?, ?, ?, ?) '''.format(EXAMPLES_TABLE.format(table)),
+                    cur.execute(''' INSERT into "{}" values (?, ?, ?, ?, ?, ?, ?, ?) '''.format(EXAMPLES_TABLE.format(table)),
                     ([example['epoch'], example['batch'], example['title1'],
                     example['title2'], example['positivePercentage'], example['negativePercentage'], example['modelPrediction'], example['label']]))
             
@@ -258,7 +258,7 @@ def get_examples() -> Tuple[Dict, int]:
             cur = conn.cursor()
 
             # Get the batch data at the particular epoch and batch
-            cur.execute('SELECT * from {} WHERE Epoch = {} AND Batch = {}'.format(EXAMPLES_TABLE.format(table), epoch, batch))
+            cur.execute('SELECT * from "{}" WHERE Epoch = {} AND Batch = {}'.format(EXAMPLES_TABLE.format(table), epoch, batch))
             rows: List[List[int, int, str, str, float, float, int, int]] = cur.fetchall()
             labels: List[str, str, str, str, str, str, str, str] = ['epoch', 'batch', 'title1', 'title2', 'positivePercentage',
                                                                     'negativePercentage', 'modelPrediction', 'label']
