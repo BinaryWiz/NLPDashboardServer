@@ -15,7 +15,17 @@ while True:
 
     if user_input.lower() == 'put batch data':
         batch += 1
-        requests.put('http://localhost:3000/add_batch_data', json={'model_name': 'priceassist', 'data': [[1, batch, 0.1, 0.1, 0.1, 0.1]]})
+        requests.put('http://localhost:3000/add_batch_data', json={'model_name': 'PriceAssistCharacterBERT2', 
+                                                                    'table': 'Training', 
+                                                                    'data': [
+                                                                        {'epoch': 2,
+                                                                        'batch': batch,
+                                                                        'accuracy': 0.1,
+                                                                        'loss': 0.1,
+                                                                        'runningAccuracy': 0.1, 
+                                                                        'runningLoss': 0.1
+                                                                        }
+                                                                    ]})
     
     if user_input.lower() == 'get batch data':
         response = requests.get('http://localhost:3000/get_batch_data', params={'model_name': 'priceassist', 'epoch': 1, 'batch': 4})
